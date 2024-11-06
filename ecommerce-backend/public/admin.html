@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Product & Order Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr; /* Three columns for each section */
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #productForm, #productList, #orderList {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 0;
+        }
+        label {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .product-item, .order-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            position: relative;
+            margin-bottom: 10px;
+        }
+        .delete-button, .complete-button {
+            position: top;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .delete-button {
+            background-color: #dc3545;
+        }
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+        .complete-button {
+            background-color: #007bff;
+            bottom: 10px;
+            padding: 5px 15px;
+            font-size: 14px;
+        }
+        .complete-button:hover {
+            background-color: #0069d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Admin - Product & Order Management</h1>
+
+    <div class="container">
+        <!-- Form to add a new product -->
+        <div id="productForm">
+            <h2>Add New Product</h2>
+            <form id="addProductForm">
+                <label for="name">Name:</label>
+                <input type="text" id="name" required>
+
+                <label for="description">Description:</label>
+                <textarea id="description" required></textarea>
+
+                <label for="price">Price:</label>
+                <input type="number" id="price" step="0.01" required>
+
+                <label for="imageUrl">Image URL:</label>
+                <input type="text" id="imageUrl" required>
+
+                <button type="submit">Add Product</button>
+            </form>
+        </div>
+
+        <!-- Section to display the list of products -->
+        <div id="productList">
+            <h2>Product List</h2>
+            <div id="productsContainer"></div>
+        </div>
+
+        <!-- Section to display the list of orders -->
+        <div id="orderList">
+            <h2>Order List</h2>
+            <div id="ordersContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchJSON(url, options = {}) {
+            const response = await fetch(url, options);
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return response.json();
+            } else {
+                throw new Error("Unexpected content-type: not JSON");
+            }
+        }
+
+        async function fetchProducts() {
+            try {
+                const products = await fetchJSON('http://localhost:5000/api/admin/products');
+                
+                const productsContainer = document.getElementById('productsContainer');
+                productsContainer.innerHTML = '';
+
+                products.forEach(product => {
+                    const productItem = document.createElement('div');
+                    productItem.classList.add('product-item');
+
+                    productItem.innerHTML = `
+                        <p class="product-name">${product.name}</p>
+                        <p>${product.description}</p>
+                        <p class="product-price">Price: $${product.price.toFixed(2)}</p>
+                        <img src="${product.imageUrl}" alt="${product.name}" width="100">
+                        <button class="delete-button" onclick="deleteProduct('${product._id}')">Delete</button>
+                    `;
+                    productsContainer.appendChild(productItem);
+                });
+            } catch (error) {
+                console.error('Error fetching products:', error);
+            }
+        }
+
+        async function fetchOrders() {
+            try {
+                const orders = await fetchJSON('http://localhost:5000/api/admin/orders');
+
+                const ordersContainer = document.getElementById('ordersContainer');
+                ordersContainer.innerHTML = '';
+
+                orders.forEach(order => {
+                    const productsList = order.products.map(product => `
+                        <li>${product.productId.name} - Quantity: ${product.quantity}</li>
+                    `).join('');
+
+                    const orderItem = document.createElement('div');
+                    orderItem.classList.add('order-item');
+                    orderItem.innerHTML = `
+                        <p><strong>User:</strong> ${order.user.name} (${order.user.email})</p>
+                        <p><strong>Address:</strong> ${order.user.address}</p>
+                        <p><strong>Total Amount:</strong> $${order.totalAmount.toFixed(2)}</p>
+                        <p><strong>Products:</strong><ul>${productsList}</ul></p>
+                        <p><strong>Status:</strong> ${order.status}</p>
+                        <button class="complete-button" onclick="completeOrder('${order._id}')">Complete Order</button>
+                    `;
+                    ordersContainer.appendChild(orderItem);
+                });
+            } catch (error) {
+                console.error('Error fetching orders:', error);
+            }
+        }
+
+        document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const productData = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                price: parseFloat(document.getElementById('price').value),
+                imageUrl: document.getElementById('imageUrl').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:5000/api/admin/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productData)
+                });
+
+                if (response.ok) {
+                    alert('Product added successfully!');
+                    document.getElementById('addProductForm').reset();
+                    fetchProducts();
+                } else {
+                    const data = await response.json();
+                    alert(`Error: ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Error adding product:', error);
+            }
+        });
+
+        async function completeOrder(orderId) {
+            if (!confirm('Are you sure you want to mark this order as completed?')) return;
+
+            try {
+                const response = await fetch(`http://localhost:5000/api/admin/orders/${orderId}`, { method: 'DELETE' });
+                
+                const contentType = response.headers.get("content-type");
+
+                if (response.ok) {
+                    if (contentType && contentType.includes("application/json")) {
+                        const data = await response.json();
+                        alert('Order marked as completed!');
+                        fetchOrders();
+                    } else {
+                        console.warn("Unexpected response format:", await response.text());
+                        alert("Unexpected response format received from server.");
+                    }
+                } else {
+                    if (contentType && contentType.includes("application/json")) {
+                        const errorData = await response.json();
+                        alert(`Error: ${errorData.message || 'Failed to complete order'}`);
+                    } else {
+                        console.error("Non-JSON error response:", await response.text());
+                        alert("Error completing order. Please check the server logs.");
+                    }
+                }
+            } catch (error) {
+                console.error('Error completing order:', error);
+            }
+        }
+
+        window.onload = () => {
+            fetchProducts();
+            fetchOrders();
+        };
+    </script>
+</body>
+</html>
