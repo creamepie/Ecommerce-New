@@ -42,7 +42,7 @@ function App() {
         <Router>
             <div className="App">
                 <header className="header">
-                    <h1>Foodie's Paradise</h1>
+                    <h1>Recipe Realm</h1>
                     <nav>
                         <Link to="/">Products</Link>
                         <Link to="/cart">Cart ({cart.length})</Link>
